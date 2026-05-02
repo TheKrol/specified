@@ -28,41 +28,31 @@ header("Content-Security-Policy: default-src 'self'; connect-src 'self' https://
 include('common.php');
 
 // Grabs data from endoflife.date's api and checks it
-
 $eoldata = json_decode(file_get_contents('https://endoflife.date/api/windows.json'), true);
 $validversions = '';
 $latestver = '';
-$found10 = false;
 $found11 = false;
 
 // Set Latest Version
 foreach ($eoldata as $eolitem) {
-    // Windows 10
-    if (!$eolitem['lts'] 
-        && !str_contains($eolitem['cycle'], '-e')
-        && str_contains($eolitem['cycle'], '10') 
-        && $found10 === false) {
-        $latestver = $latestver . $eolitem['latest'] . ' ';
-        $found10 = true;
-    }
-
     // Windows 11
-    if (!$eolitem['lts']
+    if (!(bool) $eolitem['lts']
         && !str_contains($eolitem['cycle'], '-e')
         && str_contains($eolitem['cycle'], '11') 
-        && $found11 == false) {
+        && $found11 == false
+        && !str_contains($eolitem['latest'], '10.0.28000')) {
         $latestver = $latestver . $eolitem['latest'] . ' ';
         $found11 = true;
     }
 
     // Break out of loop
-    if ($found10 == true && $found11 == true) {
+    if ($found11 == true) {
         break;
     }
 }
 
 foreach ($eoldata as $eolitem) {
-    if (!$eolitem['lts']
+    if (!(bool) $eolitem['lts']
         && !str_contains($eolitem['cycle'], '-e')
         && strtotime($eolitem['support']) > time()) {
         $validversions = $validversions . $eolitem['latest'] . ' ';
@@ -111,7 +101,7 @@ $ram_used = number_format($working_set / 1073741824, 2, '.', '');
 
 $total_ram = 0;
 
-if ($json_data['Hardware']['Ram']){ 
+if (isset($json_data['Hardware']['Ram'])){ 
     //Don't ask me why this is an old fashioned for loop, I got carried away.
     //Getting the total amount of RAM in the system.
     $ram_sticks = safe_count($json_data['Hardware']['Ram']);
@@ -572,7 +562,7 @@ $pupsfoundRunning = array_filter($referenceListRunning, function($checkobj) use 
                                                     $tpm_status = 'Disabled';
                                                     $tpm_manufacturer = "N/A";
                                                     $tpm_version = "N/A";
-                                                    if (is_null($json_data['Security']['Tpm']) || !$json_data['Security']['Tpm']['IsEnabled_InitialValue']) {
+                                                    if (is_null($json_data['Security']['Tpm']) || !(bool) $json_data['Security']['Tpm']['IsEnabled_InitialValue']) {
                                                     } else {
                                                         $tpm_status = 'Enabled';
                                                         $tpm_manufacturer = $json_data['Security']['Tpm']['ManufacturerVersionInfo'] . ' ' . $json_data['Security']['Tpm']['ManufacturerVersion'];
@@ -654,7 +644,7 @@ $pupsfoundRunning = array_filter($referenceListRunning, function($checkobj) use 
                                         <div class="green">
                                             <?php
 
-                                            if (!$json_data['Hardware']['Monitors']) {
+                                            if (!isset($json_data['Hardware']['Monitors'])) {
                                                 echo $json_data['Hardware']['Gpu'][0]['Description'];
                                             } else {
                                                 echo $json_data['Hardware']['Monitors'][0]['Name'];
@@ -676,7 +666,7 @@ $pupsfoundRunning = array_filter($referenceListRunning, function($checkobj) use 
                                         </div>
                                         <div class="modal-body">
                                             <?php
-                                            if ($json_data['Hardware']['Gpu']) {
+                                            if (isset($json_data['Hardware']['Gpu'])) {
                                                 $html = '<h5> GPU Info </h5>
                                                             <table class="table">
                                                                 <thead>
@@ -710,7 +700,7 @@ $pupsfoundRunning = array_filter($referenceListRunning, function($checkobj) use 
                                                 $html = '';
                                             }
 
-                                            if ($json_data['Hardware']['Monitors']) {
+                                            if (isset($json_data['Hardware']['Monitors'])) {
                                                 $html = '<h5> Monitor Info </h5>
                                                             <table class="table">
                                                                 <thead>
@@ -844,7 +834,7 @@ $pupsfoundRunning = array_filter($referenceListRunning, function($checkobj) use 
                                                     echo
                                                     '<tr>
                                                 <td>Secure Boot</td>
-                                                <td>' . ($json_data['Security']['SecureBootEnabled'] ? 'Enabled' : 'Disabled') . '</td>
+                                                <td>' . ((bool) $json_data['Security']['SecureBootEnabled'] ? 'Enabled' : 'Disabled') . '</td>
                                             </tr>';
                                                     echo
                                                     '<tr>
@@ -887,7 +877,7 @@ $pupsfoundRunning = array_filter($referenceListRunning, function($checkobj) use 
                                             $adapterText = "Disconnected";
 
                                             foreach ($json_data['Network']['Adapters'] as $adapter) {
-                                                if ($adapter['PhysicalAdapter'] && is_array($adapter['IPAddress']) && count($adapter['IPAddress']) > 0) {
+                                                if ((bool) $adapter['PhysicalAdapter'] && is_array($adapter['IPAddress']) && count($adapter['IPAddress']) > 0) {
                                                     $adapterText = $adapter['Description'];
                                                     break;
                                                 }
@@ -895,7 +885,7 @@ $pupsfoundRunning = array_filter($referenceListRunning, function($checkobj) use 
 
                                             if ($adapter == "") {
                                                 foreach ($json_data['Network']['Adapters'] as $adapter) {
-                                                    if ($adapter['PhysicalAdapter']) {
+                                                    if ((bool) $adapter['PhysicalAdapter']) {
                                                         $adapterText = $adapter['Description'];
                                                         break;
                                                     }
@@ -1051,7 +1041,7 @@ $pupsfoundRunning = array_filter($referenceListRunning, function($checkobj) use 
 
                                                 if (isset($nic["DNSIPV6"])) {
                                                     // Stolen from doom-scroll.php.
-                                                    $ipv6_dns = $nic['DNSIPV6'] ? ( is_array($nic['DNSIPV6']) ? $nic['DNSIPV6'] : explode(',', $nic['DNSIPV6']) ) : [];
+                                                    $ipv6_dns = isset($nic['DNSIPV6']) ? ( is_array($nic['DNSIPV6']) ? $nic['DNSIPV6'] : explode(',', $nic['DNSIPV6']) ) : [];
                                                     $table .= '
                                                             <tr>
                                                                 <td>IPv6 DNS?</td>
@@ -1069,7 +1059,7 @@ $pupsfoundRunning = array_filter($referenceListRunning, function($checkobj) use 
                                                     ';
                                                 }
 
-                                                if (isset($nic["PhysicalAdapter"]) && $nic["PhysicalAdapter"]) {
+                                                if (isset($nic["PhysicalAdapter"]) && (bool) $nic["PhysicalAdapter"]) {
                                                     $table .= '
                                                             <tr>
                                                                 <td>Full Duplex?</td>
@@ -1136,7 +1126,6 @@ $pupsfoundRunning = array_filter($referenceListRunning, function($checkobj) use 
                         <div class="widgets-widgets widgets" data-hide="false">
                             <?php
                             $drives_amount = safe_count($json_data['Hardware']['Storage']);
-                            $driveKey = 0;
 
                             foreach ($json_data['Hardware']['Storage'] as $driveKey => $drive) {
                                 $drive_size_raw = $drive['DiskCapacity'];
@@ -1147,7 +1136,7 @@ $pupsfoundRunning = array_filter($referenceListRunning, function($checkobj) use 
                                 $drive_taken = floor(bytesToGigabytes($drive_taken_raw));
                                 // the drive size can sometimes be zero if the drive is failing
                                 if ($drive_taken != 0 && $drive_size != 0) {
-                                    $drive_percentage = round((float)$drive_taken / (float)$drive_size * 100);
+                                    $drive_percentage = round($drive_taken / $drive_size * 100);
                                 } else $drive_percentage = 0;
                                 $flavor_color = '';
 
@@ -1167,18 +1156,17 @@ $pupsfoundRunning = array_filter($referenceListRunning, function($checkobj) use 
                                     array_column($drive['Partitions'], 'PartitionLetter')
                                 );
                                 $lettersString = implode(", ", $letters);
-                                $lettersStringDisplay = empty($lettersString) ? '' : "($lettersString)";
 
                                 echo '
 					<div class="widget widget-disk hover" type="button" data-mdb-toggle="modal" data-mdb-target="#drive-modal' . $driveKey . '">
-						<h1>' . $device_name . ' ' . $lettersStringDisplay . '</h1>
+						<h1>' . $device_name . ' ' . $lettersString . '</h1>
 						<div class="widget-values">
 							<div class="widget-value">
 								<div class="widget-single-value">
 									<span
                                                                    class="' . $flavor_color . '">' . (int)$drive_taken . ' GB</span>
 									<span>/</span>
-									<span>' . (int)$drive_size . ' GB</span>
+									<span>' . (int) $drive_size . ' GB</span>
 								</div>
 								<div>' . $drive_percentage . '%</div>
 							</div>
@@ -1188,7 +1176,7 @@ $pupsfoundRunning = array_filter($referenceListRunning, function($checkobj) use 
 						<div class="modal-dialog modal-xl">
 							<div class="modal-content">
 								<div class="modal-header">
-									<h5 class="modal-title" id="modal-label">' . $device_name . ' ' . $lettersStringDisplay . '</h5>
+									<h5 class="modal-title" id="modal-label">' . $device_name . ' ' . $lettersString . '</h5>
 									<button type="button" class="btn-close" data-mdb-dismiss="modal" aria-label="Close"></button>
 								</div>
 								<div class="modal-body">
